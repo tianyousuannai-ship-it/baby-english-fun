@@ -1,3 +1,5 @@
+import { iconForWord } from "./word-icons.js";
+
 const rawCategories = [
   {
     key: "animals",
@@ -891,7 +893,7 @@ export function buildWordBank(base = baseCategories, customWords = []) {
       list.push({
         id: `${category.key}-${index}`,
         en: word,
-        emoji: category.emoji,
+        emoji: iconForWord(word, category.emoji, category.key),
         color: category.color,
         categoryKey: category.key,
         categoryLabel: category.labelEn,

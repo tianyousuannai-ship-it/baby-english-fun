@@ -263,7 +263,7 @@ function render(showHelp = true) {
             ${
               word
                 ? `
-                  <div class="big-emoji">${word.emoji}</div>
+                  <div class="big-emoji" role="img" aria-label="${escapeHtml(word.en)}">${word.emoji}</div>
                   <div class="big-en">${word.en}</div>
                   <div class="big-sub">${word.categoryLabelZh} · ${word.categoryLabel}</div>
                 `
@@ -404,7 +404,7 @@ function renderLearnMode(visibleWords, word) {
 function renderWordCard(word, total) {
   return `
     <article class="word-card" style="--word-color:${word.color}">
-      <div class="word-icon">${word.emoji}</div>
+      <div class="word-icon" role="img" aria-label="${escapeHtml(word.en)}">${word.emoji}</div>
       <div>
         <h3 class="word-title">${escapeHtml(word.en)}</h3>
         <p class="word-meta">${escapeHtml(word.categoryLabelZh)} · ${escapeHtml(word.categoryLabel)} · 第 ${state.learnIndex + 1} / ${total} 个</p>
@@ -458,7 +458,7 @@ function renderQuizMode(visibleWords) {
           .map(
             (item) => `
               <button class="quiz-option ${state.quizTone === "good" && item.id === target.id ? "correct" : ""} ${state.quizTone === "bad" && item.id === target.id ? "correct" : ""}" data-action="quiz-pick" data-word-id="${item.id}">
-                <span>${item.emoji}</span>
+                <span role="img" aria-label="${escapeHtml(item.en)}">${item.emoji}</span>
                 <strong>${escapeHtml(item.en)}</strong>
                 <small>${escapeHtml(item.categoryLabelZh)}</small>
               </button>
