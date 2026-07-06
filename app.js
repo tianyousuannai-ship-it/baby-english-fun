@@ -1,27 +1,69 @@
 import { buildWordBank, baseCategories } from "./data/vocabulary.js";
 
-const STORAGE_KEY = "baby-english-custom-words-v1";
-const VIEW_KEY = "baby-english-view-mode-v1";
+const CUSTOM_WORDS_KEY = "baby-english-custom-words-v1";
+const PROGRESS_KEY = "baby-english-companion-progress-v1";
 const app = document.querySelector("#app");
 const toast = document.createElement("div");
 toast.className = "toast";
 document.body.appendChild(toast);
 
+const dailyPlan = [
+  ["apple", "banana", "strawberry"],
+  ["dog", "cat", "rabbit"],
+  ["red", "blue", "yellow"],
+  ["one", "two", "three"],
+  ["eyes", "nose", "mouth"],
+  ["mom", "dad", "baby"],
+  ["ball", "car", "teddy"],
+  ["milk", "egg", "bread"],
+  ["jump", "run", "clap"],
+  ["orange", "grape", "watermelon"],
+  ["bird", "fish", "bear"],
+  ["green", "pink", "purple"],
+  ["four", "five", "six"],
+  ["hand", "foot", "head"],
+  ["grandma", "grandpa", "friend"],
+  ["blocks", "doll", "train"],
+  ["water", "juice", "cookie"],
+  ["sit", "stand", "sleep"],
+  ["pear", "cherry", "peach"],
+  ["duck", "panda", "monkey"],
+  ["black", "white", "brown"],
+  ["seven", "eight", "nine"],
+  ["ears", "hair", "teeth"],
+  ["sister", "brother", "family"],
+  ["kite", "robot", "balloon"],
+  ["rice", "cake", "soup"],
+  ["walk", "dance", "smile"],
+  ["blueberry", "mango", "pineapple"],
+  ["lion", "tiger", "elephant"],
+  ["circle", "star", "heart"],
+];
+
+const steps = [
+  { key: "hello", label: "Hello", short: "问候" },
+  { key: "word-0", label: "1", short: "新词" },
+  { key: "word-1", label: "2", short: "新词" },
+  { key: "word-2", label: "3", short: "新词" },
+  { key: "game", label: "Game", short: "游戏" },
+  { key: "speak", label: "Say", short: "跟读" },
+  { key: "reward", label: "Star", short: "奖励" },
+  { key: "report", label: "Bye", short: "报告" },
+];
+
+const praiseLines = ["Good job!", "Excellent!", "Great!", "You did it!", "Wow! High five!"];
+const stickers = ["🍎", "🌟", "🧸", "🌈", "🚗", "🐶", "🎈", "🍓", "🦕", "🦊"];
+
 const state = {
-  mode: "learn",
-  category: "all",
-  learnIndex: 0,
-  quizScore: 0,
-  quizStreak: 0,
-  quizFeedback: "",
-  quizTone: "",
-  quizRound: 0,
-  quizTarget: null,
-  quizOptions: [],
-  showParent: false,
-  viewMode: loadViewMode(),
-  search: "",
+  screen: "home",
+  stepIndex: 0,
+  gameTargetIndex: 0,
+  feedback: "",
+  feedbackTone: "",
+  parentOpen: false,
+  sessionReport: null,
   customWords: loadCustomWords(),
+  progress: loadProgress(),
   newWord: {
     categoryKey: baseCategories[0]?.key || "animals",
     en: "",
@@ -32,27 +74,9 @@ const state = {
 
 let wordBank = buildWordBank(baseCategories, state.customWords);
 
-function loadViewMode() {
-  try {
-    const raw = localStorage.getItem(VIEW_KEY);
-    if (raw === "kid" || raw === "full") return raw;
-  } catch {
-    // ignore
-  }
-  return window.innerWidth < 860 ? "kid" : "full";
-}
-
-function saveViewMode() {
-  try {
-    localStorage.setItem(VIEW_KEY, state.viewMode);
-  } catch {
-    // ignore
-  }
-}
-
 function loadCustomWords() {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(CUSTOM_WORDS_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     return Array.isArray(parsed) ? parsed : [];
@@ -62,14 +86,65 @@ function loadCustomWords() {
 }
 
 function saveCustomWords() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state.customWords));
+  localStorage.setItem(CUSTOM_WORDS_KEY, JSON.stringify(state.customWords));
+}
+
+function loadProgress() {
+  try {
+    const raw = localStorage.getItem(PROGRESS_KEY);
+    if (!raw) throw new Error("empty");
+    const parsed = JSON.parse(raw);
+    return {
+      stars: Number(parsed.stars) || 0,
+      day: Number(parsed.day) || 1,
+      streak: Number(parsed.streak) || 0,
+      stickers: Array.isArray(parsed.stickers) ? parsed.stickers : [],
+      reports: Array.isArray(parsed.reports) ? parsed.reports : [],
+      lastCompleted: parsed.lastCompleted || "",
+    };
+  } catch {
+    return { stars: 0, day: 1, streak: 0, stickers: [], reports: [], lastCompleted: "" };
+  }
+}
+
+function saveProgress() {
+  localStorage.setItem(PROGRESS_KEY, JSON.stringify(state.progress));
+}
+
+function refreshWordBank() {
+  wordBank = buildWordBank(baseCategories, state.customWords);
+}
+
+function todayKey() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function getPlanWords(day = state.progress.day) {
+  const plan = dailyPlan[(day - 1) % dailyPlan.length];
+  const result = plan
+    .map((name) => wordBank.find((word) => word.en.toLowerCase() === name.toLowerCase()))
+    .filter(Boolean);
+
+  if (result.length === 3) return result;
+
+  const fallbackKeys = new Set(["fruits", "animals", "colors", "numbers", "body", "family", "toys", "snacks", "drinks", "actions"]);
+  const fallback = wordBank.filter((word) => fallbackKeys.has(word.categoryKey));
+  return [...result, ...fallback].slice(0, 3);
+}
+
+function getCurrentWord() {
+  const words = getPlanWords();
+  const step = steps[state.stepIndex]?.key || "hello";
+  if (!step.startsWith("word-")) return words[0];
+  const index = Number(step.split("-")[1]);
+  return words[index] || words[0];
 }
 
 function showToast(message) {
   toast.textContent = message;
   toast.classList.add("show");
   window.clearTimeout(showToast._timer);
-  showToast._timer = window.setTimeout(() => toast.classList.remove("show"), 1800);
+  showToast._timer = window.setTimeout(() => toast.classList.remove("show"), 1700);
 }
 
 function speak(text, lang = "en-US") {
@@ -77,576 +152,418 @@ function speak(text, lang = "en-US") {
   window.speechSynthesis.cancel();
   const utterance = new SpeechSynthesisUtterance(text);
   utterance.lang = lang;
-  utterance.rate = 0.86;
-  utterance.pitch = 1.08;
+  utterance.rate = 0.82;
+  utterance.pitch = 1.16;
   utterance.volume = 1;
   window.speechSynthesis.speak(utterance);
+}
+
+function speakTeddy(text) {
+  speak(text);
 }
 
 function categoryByKey(key) {
   return baseCategories.find((item) => item.key === key);
 }
 
-function getVisibleWords() {
-  const filtered =
-    state.category === "all"
-      ? wordBank
-      : wordBank.filter((word) => word.categoryKey === state.category);
-  const query = state.search.trim().toLowerCase();
-  if (!query) return filtered;
-  return filtered.filter((word) => {
-    return (
-      word.en.toLowerCase().includes(query) ||
-      word.categoryLabel.toLowerCase().includes(query) ||
-      word.categoryLabelZh.includes(query)
-    );
-  });
-}
-
-function refreshWordBank() {
-  wordBank = buildWordBank(baseCategories, state.customWords);
-  const visible = getVisibleWords();
-  if (state.learnIndex >= visible.length) {
-    state.learnIndex = 0;
-  }
-}
-
-function clampLearnIndex(delta = 0) {
-  const visible = getVisibleWords();
-  if (!visible.length) {
-    state.learnIndex = 0;
-    return;
-  }
-  state.learnIndex = (state.learnIndex + delta + visible.length) % visible.length;
-}
-
-function currentLearnWord() {
-  const visible = getVisibleWords();
-  return visible[state.learnIndex] || visible[0] || null;
-}
-
-function buildQuizRound() {
-  const pool = getVisibleWords();
-  if (!pool.length) {
-    state.quizTarget = null;
-    state.quizOptions = [];
-    return;
-  }
-  const target = pool[Math.floor(Math.random() * pool.length)];
-  const others = pool.filter((item) => item.id !== target.id);
-  const options = [target];
-  shuffle(others).slice(0, 3).forEach((item) => options.push(item));
-  state.quizTarget = target;
-  state.quizOptions = shuffle(options);
-  state.quizFeedback = "";
-  state.quizTone = "";
-  state.quizRound += 1;
-  window.setTimeout(() => speak(target.en), 180);
-}
-
-function shuffle(list) {
-  const copy = [...list];
-  for (let i = copy.length - 1; i > 0; i -= 1) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [copy[i], copy[j]] = [copy[j], copy[i]];
-  }
-  return copy;
-}
-
-function setMode(mode) {
-  state.mode = mode;
-  if (mode === "quiz") {
-    buildQuizRound();
-  }
-  render();
-}
-
-function setCategory(key) {
-  state.category = key;
-  state.learnIndex = 0;
-  if (state.mode === "quiz") {
-    buildQuizRound();
-  }
-  render();
-}
-
-function toggleViewMode() {
-  state.viewMode = state.viewMode === "kid" ? "full" : "kid";
-  saveViewMode();
-  render();
-}
-
-function updateForm(field, value) {
-  state.newWord[field] = value;
-  render(false);
-}
-
-function render(showHelp = true) {
-  const activeElement = document.activeElement;
-  const activeAction = activeElement?.dataset?.action;
-  const activeValue = activeElement?.value;
-  const activeSelectionStart =
-    typeof activeElement?.selectionStart === "number" ? activeElement.selectionStart : null;
-  const activeSelectionEnd =
-    typeof activeElement?.selectionEnd === "number" ? activeElement.selectionEnd : null;
-  const visibleWords = getVisibleWords();
-  const word = currentLearnWord();
-  const currentCategory =
-    state.category === "all"
-      ? {
-          key: "all",
-          labelZh: "全部",
-          labelEn: "All",
-          emoji: "🌈",
-          color: "#ff7b54",
-        }
-      : categoryByKey(state.category);
-  const total = wordBank.length;
-  const visibleCount = visibleWords.length;
-  const categoryCount = baseCategories.length;
-  const viewLabel = state.viewMode === "kid" ? "儿童专注" : "完整浏览";
-  const showFullLibrary = state.viewMode === "full";
+function render() {
+  const words = getPlanWords();
+  const step = steps[state.stepIndex] || steps[0];
 
   app.innerHTML = `
-    <div class="app-shell view-${state.viewMode}">
-      <section class="hero">
-        <div class="hero-card">
-          <div class="masthead">
-            <div class="brand">
-              <div class="brand-mark">🐣</div>
-              <div>
-                <h1>宝宝英语乐园</h1>
-                <p>适合 3 岁小朋友的点读英语小站</p>
-              </div>
-            </div>
-            <div class="masthead-actions">
-              <button class="control-btn" data-action="toggle-view">${viewLabel}</button>
-              <button class="control-btn" data-action="toggle-parent">
-                ${state.showParent ? "关闭家长区" : "家长更新"}
-              </button>
-            </div>
-          </div>
-
-          <div class="stat-row">
-            <div class="stat">
-              <span class="stat-label">基础词汇</span>
-              <span class="stat-value">${total}</span>
-            </div>
-            <div class="stat">
-              <span class="stat-label">分类数量</span>
-              <span class="stat-value">${categoryCount}</span>
-            </div>
-            <div class="stat">
-              <span class="stat-label">当前筛选</span>
-              <span class="stat-value">${visibleCount}</span>
-            </div>
-            <div class="stat">
-              <span class="stat-label">家长添加</span>
-              <span class="stat-value">${state.customWords.length}</span>
-            </div>
-          </div>
-
-          <p class="hint">
-            点击“听一听”可以直接读词，孩子也能用“找一找”来做小测验。
-            所有基础词都放在一个文件里，后续你可以很轻松地继续加词。
-          </p>
-
-          <div class="mode-row">
-            <button class="mode-pill ${state.mode === "learn" ? "active" : ""}" data-action="mode" data-mode="learn">📘 看一看</button>
-            <button class="mode-pill ${state.mode === "quiz" ? "active" : ""}" data-action="mode" data-mode="quiz">🔍 找一找</button>
-          </div>
-        </div>
-
-        <aside class="side-card">
-          <h2>今天先学什么？</h2>
-          <div class="big-word" style="--word-color:${currentCategory?.color || "#ff7b54"}">
-            ${
-              word
-                ? `
-                  <div class="big-emoji" role="img" aria-label="${escapeHtml(word.en)}">${word.emoji}</div>
-                  <div class="big-en">${word.en}</div>
-                  <div class="big-sub">${word.categoryLabelZh} · ${word.categoryLabel}</div>
-                `
-                : `
-                  <div class="big-emoji">🌷</div>
-                  <div class="big-en">No words</div>
-                  <div class="big-sub">当前没有可看的词汇</div>
-                `
-            }
-          </div>
-          <div class="big-actions">
-            <button class="primary-btn" data-action="speak-current">🔊 听一听</button>
-            <button class="ghost-btn" data-action="next-word">下一张 ➜</button>
-            <button class="ghost-btn" data-action="prev-word">⬅ 上一张</button>
-            <button class="ghost-btn" data-action="random-word">🎲 随机</button>
-          </div>
-          <p class="section-note">现在筛选：${currentCategory?.labelZh || "全部"} · ${visibleCount} 个词</p>
-        </aside>
-      </section>
-
-      ${
-        showFullLibrary
-          ? `
-      <section class="content-grid">
-        <div class="panel library">
-          <div class="toolbar">
-            <div class="toolbar-left">
-              <strong>分类</strong>
-              <span class="section-note">点一下就能切换。</span>
-            </div>
-            <div class="toolbar-right">
-              <input class="search" placeholder="搜索单词，比如 dog / red / apple" value="${escapeHtml(state.search)}" data-action="search" />
-            </div>
-          </div>
-
-          <div class="chip-row">
-            <button class="chip ${state.category === "all" ? "active" : ""}" data-action="category" data-category="all">🌈 全部</button>
-            ${baseCategories
-              .map(
-                (category) => `
-                  <button class="chip ${state.category === category.key ? "active" : ""}" data-action="category" data-category="${category.key}" style="--chip-color:${category.color}">
-                    ${category.emoji} ${category.labelZh}
-                  </button>
-                `
-              )
-              .join("")}
-          </div>
-
-          ${
-            state.mode === "learn"
-              ? renderLearnMode(visibleWords, word)
-              : renderQuizMode(visibleWords)
-          }
-        </div>
-
-        <div class="panel panel-grid">
-          <div>
-            <h2>家长更新区</h2>
-            <p>可以现场新增单词，也可以导出一份 JSON 备份，后面把文件交给朋友或自己继续扩充。</p>
-          </div>
-          ${state.showParent ? renderParentPanel() : `
-            <div class="word-preview">
-              <strong>只想给孩子直接用？</strong>
-              <p>不用打开家长区也能学。你只需要把这个文件放到 GitHub Pages，上线后就是一个可分享的小站。</p>
-              <code>基础词汇 ${total} 个</code>
-            </div>
-          `}
-        </div>
-      </section>
-      `
-          : `
-      <section class="panel kid-panel">
-        <div class="kid-panel-head">
-          <div>
-            <h2>儿童专注模式</h2>
-            <p>更少内容，更大按钮。适合孩子直接点。</p>
-          </div>
-          <button class="control-btn" data-action="toggle-view">切回完整浏览</button>
-        </div>
-        <div class="kid-card-shell">
-          ${
-            state.mode === "learn"
-              ? renderLearnMode(visibleWords, word)
-              : renderQuizMode(visibleWords)
-          }
-        </div>
-      </section>
-      `
-      }
-
-      <div class="footer-note">
-        适合 3 岁左右孩子的英语启蒙 · 离线可用 · 可以直接放到 GitHub Pages
-      </div>
+    <div class="app-shell companion-shell">
+      ${renderTopBar(words)}
+      ${state.screen === "home" ? renderHome(words) : renderLesson(step, words)}
+      ${state.parentOpen ? renderParentDrawer(words) : ""}
+      <footer class="footer-note">亲子 AI 英语陪伴工具 · 每天 10 到 15 分钟 · 适合手机、平板和电脑</footer>
     </div>
   `;
 
   bindEvents();
-  if (activeAction) {
-    const restored = app.querySelector(`[data-action="${activeAction}"]`);
-    if (restored && typeof restored.focus === "function") {
-      restored.focus();
-      if (
-        typeof restored.setSelectionRange === "function" &&
-        activeSelectionStart !== null &&
-        activeSelectionEnd !== null &&
-        restored.value === activeValue
-      ) {
-        restored.setSelectionRange(activeSelectionStart, activeSelectionEnd);
-      }
-    }
-  }
-  if (showHelp) {
-    if (state.mode === "quiz" && state.quizTarget) {
-      showToast("听声音，找正确的卡片");
-    } else if (word) {
-      showToast("点一下“听一听”可以朗读");
-    }
-  }
 }
 
-function renderLearnMode(visibleWords, word) {
-  if (!visibleWords.length) {
-    return `
-      <div class="word-preview">
-        <strong>这个分类还没有词汇</strong>
-        <p>你可以换一个分类，或者在家长区新增单词。</p>
-      </div>
-    `;
-  }
-
+function renderTopBar(words) {
   return `
-    <div class="word-stack">
-      ${word ? renderWordCard(word, visibleWords.length) : ""}
+    <header class="topbar">
+      <button class="brand-button" data-action="go-home" aria-label="回到首页">
+        <span class="teddy-mini">🧸</span>
+        <span>
+          <strong>宝宝英语陪伴乐园</strong>
+          <small>Teddy 每日陪学</small>
+        </span>
+      </button>
+      <div class="top-stats" aria-label="学习进度">
+        <span>⭐ ${state.progress.stars}</span>
+        <span>🔥 ${state.progress.streak} 天</span>
+        <span>Day ${state.progress.day}</span>
+      </div>
+      <button class="parent-link" data-action="toggle-parent">${state.parentOpen ? "关闭家长区" : "家长区"}</button>
+    </header>
+  `;
+}
+
+function renderHome(words) {
+  return `
+    <main class="home-stage">
+      <section class="teddy-card">
+        <div class="soft-cloud cloud-one"></div>
+        <div class="soft-cloud cloud-two"></div>
+        <div class="teddy-face" aria-hidden="true">🧸</div>
+        <div class="speech-bubble">
+          <p class="eyebrow">Hello! I'm Teddy!</p>
+          <h1>今天一起玩英语吧</h1>
+          <p>每天只学 3 个生活小词，玩一个小游戏，再跟 Teddy 说一句英语。</p>
+        </div>
+        <div class="today-words" aria-label="今天的三个单词">
+          ${words.map((word) => renderMiniWord(word)).join("")}
+        </div>
+        <div class="home-actions">
+          <button class="start-btn" data-action="start-lesson">开始今天</button>
+          <button class="soft-btn" data-action="speak-hello">听 Teddy 问好</button>
+        </div>
+      </section>
+
+      <aside class="parent-tip-card">
+        <h2>爸爸/妈妈今天怎么陪？</h2>
+        <p>不用讲语法，也不用考试。陪孩子点图片、跟读一次、夸一句就很好。</p>
+        <div class="parent-script">
+          <span>今日亲子句子</span>
+          <strong>What's this?</strong>
+          <small>指着 ${escapeHtml(words[0]?.en || "apple")} 问孩子，答不出来就一起说。</small>
+        </div>
+      </aside>
+    </main>
+  `;
+}
+
+function renderMiniWord(word) {
+  if (!word) return "";
+  return `
+    <button class="mini-word" data-action="speak-word" data-word-id="${word.id}" style="--word-color:${word.color}">
+      <span role="img" aria-label="${escapeHtml(word.en)}">${word.emoji}</span>
+      <strong>${escapeHtml(word.en)}</strong>
+    </button>
+  `;
+}
+
+function renderLesson(step, words) {
+  return `
+    <main class="lesson-stage">
+      ${renderProgressRail()}
+      <section class="lesson-card ${step.key}">
+        ${renderStepContent(step, words)}
+      </section>
+    </main>
+  `;
+}
+
+function renderProgressRail() {
+  return `
+    <nav class="step-rail" aria-label="今日学习流程">
+      ${steps
+        .map(
+          (step, index) => `
+            <button class="step-dot ${index === state.stepIndex ? "active" : ""} ${index < state.stepIndex ? "done" : ""}" data-action="jump-step" data-step-index="${index}">
+              <span>${step.label}</span>
+              <small>${step.short}</small>
+            </button>
+          `
+        )
+        .join("")}
+    </nav>
+  `;
+}
+
+function renderStepContent(step, words) {
+  if (step.key === "hello") return renderHelloStep();
+  if (step.key.startsWith("word-")) return renderWordStep(step, words);
+  if (step.key === "game") return renderGameStep(words);
+  if (step.key === "speak") return renderSpeakStep(words);
+  if (step.key === "reward") return renderRewardStep(words);
+  return renderReportStep(words);
+}
+
+function renderHelloStep() {
+  return `
+    <div class="lesson-center">
+      <div class="teddy-big">🧸</div>
+      <p class="eyebrow">Step 1 · Hello</p>
+      <h2>Hello! I'm Teddy!</h2>
+      <p class="large-copy">今天 Teddy 会陪你认识 3 个英语小朋友。</p>
+      <div class="choice-row two">
+        <button class="kid-choice" data-action="speak-line" data-line="Hello! I'm Teddy! Are you ready?">🔊 听 Teddy</button>
+        <button class="kid-choice primary" data-action="next-step">Ready!</button>
+      </div>
     </div>
   `;
 }
 
-function renderWordCard(word, total) {
+function renderWordStep(step, words) {
+  const index = Number(step.key.split("-")[1]);
+  const word = words[index] || words[0];
   return `
-    <article class="word-card" style="--word-color:${word.color}">
-      <div class="word-icon" role="img" aria-label="${escapeHtml(word.en)}">${word.emoji}</div>
-      <div>
-        <h3 class="word-title">${escapeHtml(word.en)}</h3>
-        <p class="word-meta">${escapeHtml(word.categoryLabelZh)} · ${escapeHtml(word.categoryLabel)} · 第 ${state.learnIndex + 1} / ${total} 个</p>
+    <div class="word-learn">
+      <div class="word-picture" style="--word-color:${word.color}">
+        <span role="img" aria-label="${escapeHtml(word.en)}">${word.emoji}</span>
       </div>
-      <div class="word-actions">
-        <button class="tiny-btn" data-action="speak-current" aria-label="听一听">🔊</button>
-        <button class="tiny-btn" data-action="prev-word" aria-label="上一张">⬅</button>
-        <button class="tiny-btn" data-action="next-word" aria-label="下一张">➡</button>
+      <div class="word-copy">
+        <p class="eyebrow">New Word ${index + 1} / 3</p>
+        <h2>${escapeHtml(word.en)}</h2>
+        <p>${escapeHtml(word.categoryLabelZh)} · Teddy 说：This is ${articleFor(word.en)} ${escapeHtml(word.en)}.</p>
       </div>
-    </article>
+      <div class="choice-row two">
+        <button class="kid-choice" data-action="speak-line" data-line="${escapeAttr(`This is ${articleFor(word.en)} ${word.en}. ${word.en}.`)}">🔊 听一听</button>
+        <button class="kid-choice primary" data-action="next-step">我认识啦</button>
+      </div>
+    </div>
   `;
 }
 
-function renderQuizMode(visibleWords) {
-  if (visibleWords.length < 4) {
-    return `
-      <div class="word-preview">
-        <strong>这个分类的词太少了</strong>
-        <p>找一找至少需要 4 个词。你可以切到“全部”，或者换个更大的分类。</p>
-      </div>
-    `;
-  }
-
-  const target = state.quizTarget || visibleWords[0];
+function renderGameStep(words) {
+  const target = words[state.gameTargetIndex] || words[0];
+  const options = buildGameOptions(target, words);
   return `
-    <div class="quiz-board">
-      <div class="quiz-head">
+    <div class="game-wrap">
+      <div class="game-prompt">
+        <div class="teddy-small">🧸</div>
         <div>
-          <h3>听一听，找出正确的单词</h3>
-          <p class="section-note">每次只认 4 张卡，适合小朋友一眼看懂。</p>
-        </div>
-        <button class="control-btn" data-action="new-quiz">🎲 下一题</button>
-      </div>
-
-      <div class="quiz-prompt">
-        <div class="quiz-word">${escapeHtml(target.en)}</div>
-        <div class="form-actions">
-          <button class="primary-btn" data-action="speak-target">🔊 再听一次</button>
-          <div class="feedback ${state.quizTone === "good" ? "good" : state.quizTone === "bad" ? "bad" : ""}">
-            ${
-              state.quizFeedback
-                ? `${state.quizFeedback} · 当前得分 ${state.quizScore}`
-                : `先听声音，再点下面正确的卡片`
-            }
-          </div>
+          <p class="eyebrow">Game Time</p>
+          <h2>Can you find the ${escapeHtml(target.en)}?</h2>
+          <p>点一下正确的图片，Teddy 会给你星星。</p>
         </div>
       </div>
-
-      <div class="quiz-options">
-        ${state.quizOptions
+      <div class="game-options">
+        ${options
           .map(
-            (item) => `
-              <button class="quiz-option ${state.quizTone === "good" && item.id === target.id ? "correct" : ""} ${state.quizTone === "bad" && item.id === target.id ? "correct" : ""}" data-action="quiz-pick" data-word-id="${item.id}">
-                <span role="img" aria-label="${escapeHtml(item.en)}">${item.emoji}</span>
-                <strong>${escapeHtml(item.en)}</strong>
-                <small>${escapeHtml(item.categoryLabelZh)}</small>
+            (word) => `
+              <button class="game-option" data-action="game-pick" data-word-id="${word.id}" style="--word-color:${word.color}">
+                <span role="img" aria-label="${escapeHtml(word.en)}">${word.emoji}</span>
+                <strong>${escapeHtml(word.en)}</strong>
               </button>
             `
           )
           .join("")}
       </div>
+      <div class="feedback-line ${state.feedbackTone}">${state.feedback || "先听 Teddy 的问题，再找图片。"}</div>
     </div>
   `;
 }
 
-function renderParentPanel() {
-  const newWord = state.newWord;
+function renderSpeakStep(words) {
+  const word = words[0];
   return `
-    <div class="panel-grid">
-      <div class="form-grid">
-        <input class="form-field full" placeholder="English word, like apple" value="${escapeHtml(newWord.en)}" data-action="new-en" />
-        <input class="form-field" placeholder="Emoji, like 🍎" value="${escapeHtml(newWord.emoji)}" data-action="new-emoji" />
-        <input class="form-field" placeholder="Color, like #ff7b54" value="${escapeHtml(newWord.color)}" data-action="new-color" />
-        <select class="form-field" data-action="new-category">
-          ${baseCategories
-            .map(
-              (category) => `
-                <option value="${category.key}" ${category.key === newWord.categoryKey ? "selected" : ""}>
-                  ${category.emoji} ${category.labelZh}
-                </option>
-              `
-            )
-            .join("")}
-        </select>
+    <div class="lesson-center">
+      <div class="word-picture medium" style="--word-color:${word.color}">
+        <span role="img" aria-label="${escapeHtml(word.en)}">${word.emoji}</span>
       </div>
-
-      <div class="form-actions">
-        <button class="primary-btn" data-action="add-word">➕ 添加到词库</button>
-        <button class="ghost-btn" data-action="export-custom">⬇ 导出备份</button>
-        <button class="ghost-btn" data-action="clear-custom">🧹 清空自定义</button>
+      <p class="eyebrow">AI 口语跟读</p>
+      <h2>Say ${escapeHtml(word.en)}</h2>
+      <p class="large-copy">第一版先鼓励孩子开口。点麦克风后，和 Teddy 一起说。</p>
+      <div class="choice-row two">
+        <button class="kid-choice" data-action="speak-line" data-line="${escapeAttr(`Say ${word.en}. ${word.en}.`)}">🔊 Teddy 先说</button>
+        <button class="kid-choice primary" data-action="pretend-record">🎤 我说啦</button>
       </div>
-
-      <div class="word-preview">
-        <strong>将要添加的词</strong>
-        <p>${escapeHtml(newWord.en || "还没输入单词")}</p>
-        <code>${escapeHtml(newWord.emoji || "✨")} · ${escapeHtml(categoryByKey(newWord.categoryKey)?.labelZh || "")}</code>
-      </div>
-
-      <p class="section-note">
-        提示：这个站点的基础词库集中在 <code>data/vocabulary.js</code>。
-        你也可以先在这里加词，再把备份 JSON 合并回代码里。
-      </p>
+      <div class="feedback-line ${state.feedbackTone}">${state.feedback || "孩子愿意开口，就已经很棒。"}</div>
     </div>
   `;
 }
 
-function bindEvents() {
-  app.querySelectorAll("[data-action]").forEach((element) => {
-    const action = element.dataset.action;
-    if (action === "mode") {
-      element.addEventListener("click", () => setMode(element.dataset.mode));
-      return;
-    }
-    if (action === "category") {
-      element.addEventListener("click", () => setCategory(element.dataset.category));
-      return;
-    }
-    if (action === "search") {
-      element.addEventListener("input", (event) => {
-        state.search = event.target.value;
-        state.learnIndex = 0;
-        if (state.mode === "quiz") {
-          buildQuizRound();
-        }
-        render(false);
-      });
-      return;
-    }
-    if (action === "new-en") {
-      element.addEventListener("input", (event) => updateForm("en", event.target.value));
-      return;
-    }
-    if (action === "new-emoji") {
-      element.addEventListener("input", (event) => updateForm("emoji", event.target.value || "✨"));
-      return;
-    }
-    if (action === "new-color") {
-      element.addEventListener("input", (event) => updateForm("color", event.target.value || "#ff7b54"));
-      return;
-    }
-    if (action === "new-category") {
-      element.addEventListener("change", (event) => updateForm("categoryKey", event.target.value));
-      return;
-    }
-    if (action === "speak-current") {
-      element.addEventListener("click", () => {
-        const current = currentLearnWord();
-        if (current) speak(current.en);
-      });
-      return;
-    }
-    if (action === "speak-target") {
-      element.addEventListener("click", () => {
-        if (state.quizTarget) speak(state.quizTarget.en);
-      });
-      return;
-    }
-    if (action === "next-word") {
-      element.addEventListener("click", () => {
-        clampLearnIndex(1);
-        render();
-      });
-      return;
-    }
-    if (action === "prev-word") {
-      element.addEventListener("click", () => {
-        clampLearnIndex(-1);
-        render();
-      });
-      return;
-    }
-    if (action === "random-word") {
-      element.addEventListener("click", () => {
-        const visible = getVisibleWords();
-        if (!visible.length) return;
-        state.learnIndex = Math.floor(Math.random() * visible.length);
-        render();
-      });
-      return;
-    }
-    if (action === "new-quiz") {
-      element.addEventListener("click", () => {
-        buildQuizRound();
-        render();
-      });
-      return;
-    }
-    if (action === "quiz-pick") {
-      element.addEventListener("click", () => handleQuizPick(element.dataset.wordId));
-      return;
-    }
-    if (action === "toggle-parent") {
-      element.addEventListener("click", () => {
-        state.showParent = !state.showParent;
-        render();
-      });
-      return;
-    }
-    if (action === "toggle-view") {
-      element.addEventListener("click", toggleViewMode);
-      return;
-    }
-    if (action === "add-word") {
-      element.addEventListener("click", addCustomWord);
-      return;
-    }
-    if (action === "export-custom") {
-      element.addEventListener("click", exportCustomWords);
-      return;
-    }
-    if (action === "clear-custom") {
-      element.addEventListener("click", clearCustomWords);
-      return;
-    }
-  });
+function renderRewardStep() {
+  return `
+    <div class="lesson-center reward-scene">
+      <div class="confetti" aria-hidden="true">🎉 ⭐ 🎈</div>
+      <div class="teddy-big clap">🧸</div>
+      <p class="eyebrow">Star Reward</p>
+      <h2>You did it!</h2>
+      <p class="large-copy">今天完成后可以获得 5 颗星和一个小贴纸。</p>
+      <div class="reward-box">
+        <span>⭐ +5</span>
+        <span>${stickers[(state.progress.day - 1) % stickers.length]} 今日贴纸</span>
+      </div>
+      <button class="start-btn" data-action="finish-day">领取奖励</button>
+    </div>
+  `;
 }
 
-function handleQuizPick(id) {
-  const target = state.quizTarget;
-  if (!target || state.quizOptions.length === 0) return;
-  const selected = state.quizOptions.find((item) => item.id === id);
-  if (!selected) return;
+function renderReportStep(words) {
+  const session = state.sessionReport;
+  const reportWords = session?.words || words;
+  const report = session?.report || buildReport(reportWords);
+  const reportDay = session?.day || state.progress.day;
+  return `
+    <div class="report-grid">
+      <section class="report-card">
+        <p class="eyebrow">Bye bye report</p>
+        <h2>Day ${reportDay}</h2>
+        <p>Teddy 今天很开心，孩子完成了一次轻松英语陪伴。</p>
+        <div class="report-list">
+          <strong>今天学习</strong>
+          ${reportWords.map((word) => `<span>${word.emoji} ${escapeHtml(word.en)}</span>`).join("")}
+        </div>
+        <div class="report-list">
+          <strong>表现</strong>
+          <span>${escapeHtml(report.performance)}</span>
+        </div>
+        <div class="report-list">
+          <strong>明天建议</strong>
+          <span>${escapeHtml(report.tomorrow)}</span>
+        </div>
+      </section>
+      <section class="parent-tip-card report-parent">
+        <h2>爸爸/妈妈陪练</h2>
+        <p>${escapeHtml(report.parentTask)}</p>
+        <button class="soft-btn" data-action="speak-line" data-line="What's this? ${escapeAttr(reportWords[0]?.en || "apple")}">🔊 播放亲子句子</button>
+        <button class="start-btn" data-action="go-home">Bye bye</button>
+      </section>
+    </div>
+  `;
+}
 
-  if (selected.id === target.id) {
-    state.quizScore += 1;
-    state.quizStreak += 1;
-    state.quizFeedback = "太棒了！";
-    state.quizTone = "good";
-    render(false);
-    showToast("答对了，继续下一题");
-    window.setTimeout(() => {
-      buildQuizRound();
-      render();
-    }, 700);
+function renderParentDrawer(words) {
+  const latestReports = state.progress.reports.slice(0, 3);
+  return `
+    <aside class="parent-drawer">
+      <div class="drawer-head">
+        <div>
+          <p class="eyebrow">Parent Mode</p>
+          <h2>家长陪学与词库更新</h2>
+        </div>
+        <button class="parent-link" data-action="toggle-parent">关闭</button>
+      </div>
+      <div class="parent-grid">
+        <section class="parent-box">
+          <h3>今天陪学建议</h3>
+          <p>指着 ${escapeHtml(words[0]?.en || "apple")} 的图片问：<strong>What's this?</strong></p>
+          <p>孩子答不出也没关系，家长跟 Teddy 一起说一遍就可以。</p>
+        </section>
+        <section class="parent-box">
+          <h3>最近报告</h3>
+          ${
+            latestReports.length
+              ? latestReports.map((report) => `<p>Day ${report.day}：${report.words.join(", ")}</p>`).join("")
+              : "<p>完成一次今日学习后，这里会出现成长报告。</p>"
+          }
+        </section>
+        <section class="parent-box wide">
+          <h3>新增词汇</h3>
+          <div class="form-grid">
+            <input class="form-field full" placeholder="English word, like apple" value="${escapeHtml(state.newWord.en)}" data-action="new-en" />
+            <input class="form-field" placeholder="Emoji, like 🍎" value="${escapeHtml(state.newWord.emoji)}" data-action="new-emoji" />
+            <input class="form-field" placeholder="Color, like #ff7b54" value="${escapeHtml(state.newWord.color)}" data-action="new-color" />
+            <select class="form-field" data-action="new-category">
+              ${baseCategories.map((category) => `<option value="${category.key}" ${category.key === state.newWord.categoryKey ? "selected" : ""}>${category.emoji} ${category.labelZh}</option>`).join("")}
+            </select>
+          </div>
+          <div class="form-actions">
+            <button class="soft-btn" data-action="add-word">添加到词库</button>
+            <button class="soft-btn" data-action="export-custom">导出备份</button>
+            <button class="soft-btn" data-action="clear-custom">清空自定义</button>
+          </div>
+        </section>
+      </div>
+    </aside>
+  `;
+}
+
+function buildGameOptions(target, words) {
+  const pool = wordBank.filter((word) => word.id !== target.id && word.categoryKey !== "all");
+  return shuffle([target, ...shuffle(pool).slice(0, 3)]).slice(0, 4);
+}
+
+function buildReport(words) {
+  const hardWord = words.find((word) => word.en.length > 6) || words[2] || words[0];
+  const easyWord = words[0];
+  return {
+    performance: `${easyWord.en} 反应很好，愿意听声音和点图片就是很棒的开始。`,
+    tomorrow: `明天可以先复习 ${hardWord.en}，再新增一个生活小词。`,
+    parentTask: `今天只需要 3 到 5 分钟。指着 ${easyWord.en} 问孩子：What's this? 孩子回答 ${easyWord.en} 就完成。`,
+  };
+}
+
+function finishDay() {
+  const completedDay = state.progress.day;
+  const words = getPlanWords();
+  const sticker = stickers[(completedDay - 1) % stickers.length];
+  const report = buildReport(words);
+
+  state.progress.stars += 5;
+  state.progress.streak += state.progress.lastCompleted === todayKey() ? 0 : 1;
+  state.progress.lastCompleted = todayKey();
+  state.progress.stickers = [sticker, ...state.progress.stickers].slice(0, 20);
+  state.progress.reports = [
+    {
+      day: completedDay,
+      date: todayKey(),
+      words: words.map((word) => word.en),
+      ...report,
+    },
+    ...state.progress.reports,
+  ].slice(0, 7);
+  state.progress.day = completedDay + 1;
+  state.sessionReport = { day: completedDay, words, report };
+  saveProgress();
+  state.stepIndex = steps.findIndex((step) => step.key === "report");
+  state.feedback = "";
+  state.feedbackTone = "";
+  speakTeddy("You did it! Good job! Bye bye!");
+  render();
+}
+
+function nextStep() {
+  state.stepIndex = Math.min(state.stepIndex + 1, steps.length - 1);
+  state.feedback = "";
+  state.feedbackTone = "";
+  render();
+}
+
+function startLesson() {
+  state.screen = "lesson";
+  state.stepIndex = 0;
+  state.gameTargetIndex = 0;
+  state.feedback = "";
+  state.feedbackTone = "";
+  state.sessionReport = null;
+  speakTeddy("Hello! I'm Teddy! Are you ready?");
+  render();
+}
+
+function goHome() {
+  state.screen = "home";
+  state.feedback = "";
+  state.feedbackTone = "";
+  state.sessionReport = null;
+  render();
+}
+
+function handleGamePick(id) {
+  const words = getPlanWords();
+  const target = words[state.gameTargetIndex] || words[0];
+  if (id === target.id) {
+    const praise = praiseLines[Math.floor(Math.random() * praiseLines.length)];
+    state.feedback = `${praise} You found the ${target.en}!`;
+    state.feedbackTone = "good";
+    speakTeddy(`${praise} You found the ${target.en}!`);
+    if (state.gameTargetIndex < words.length - 1) {
+      state.gameTargetIndex += 1;
+      window.setTimeout(() => render(), 650);
+    } else {
+      window.setTimeout(() => nextStep(), 900);
+    }
+    render();
     return;
   }
+  state.feedback = "Nice try! Look again.";
+  state.feedbackTone = "warm";
+  speakTeddy("Nice try! Look again.");
+  render();
+}
 
-  state.quizStreak = 0;
-  state.quizFeedback = "再试一次";
-  state.quizTone = "bad";
-  render(false);
-  showToast("再听一遍，选正确的卡片");
+function pretendRecord() {
+  state.feedback = "Great! Teddy heard you. You did it!";
+  state.feedbackTone = "good";
+  speakTeddy("Great! You did it!");
+  render();
+  window.setTimeout(() => nextStep(), 900);
 }
 
 function addCustomWord() {
@@ -678,9 +595,7 @@ function addCustomWord() {
 }
 
 function exportCustomWords() {
-  const blob = new Blob([JSON.stringify(state.customWords, null, 2)], {
-    type: "application/json",
-  });
+  const blob = new Blob([JSON.stringify(state.customWords, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
@@ -701,6 +616,69 @@ function clearCustomWords() {
   showToast("本地自定义已清空");
 }
 
+function updateForm(field, value) {
+  state.newWord[field] = value;
+}
+
+function bindEvents() {
+  app.querySelectorAll("[data-action]").forEach((element) => {
+    const action = element.dataset.action;
+    if (action === "start-lesson") element.addEventListener("click", startLesson);
+    if (action === "go-home") element.addEventListener("click", goHome);
+    if (action === "next-step") element.addEventListener("click", nextStep);
+    if (action === "jump-step") {
+      element.addEventListener("click", () => {
+        state.screen = "lesson";
+        state.stepIndex = Number(element.dataset.stepIndex) || 0;
+        state.feedback = "";
+        state.feedbackTone = "";
+        render();
+      });
+    }
+    if (action === "speak-hello") {
+      element.addEventListener("click", () => speakTeddy("Hello! I'm Teddy! Are you ready?"));
+    }
+    if (action === "speak-line") {
+      element.addEventListener("click", () => speakTeddy(element.dataset.line || "Good job!"));
+    }
+    if (action === "speak-word") {
+      element.addEventListener("click", () => {
+        const word = wordBank.find((item) => item.id === element.dataset.wordId);
+        if (word) speakTeddy(word.en);
+      });
+    }
+    if (action === "game-pick") element.addEventListener("click", () => handleGamePick(element.dataset.wordId));
+    if (action === "pretend-record") element.addEventListener("click", pretendRecord);
+    if (action === "finish-day") element.addEventListener("click", finishDay);
+    if (action === "toggle-parent") {
+      element.addEventListener("click", () => {
+        state.parentOpen = !state.parentOpen;
+        render();
+      });
+    }
+    if (action === "new-en") element.addEventListener("input", (event) => updateForm("en", event.target.value));
+    if (action === "new-emoji") element.addEventListener("input", (event) => updateForm("emoji", event.target.value || "✨"));
+    if (action === "new-color") element.addEventListener("input", (event) => updateForm("color", event.target.value || "#ff7b54"));
+    if (action === "new-category") element.addEventListener("change", (event) => updateForm("categoryKey", event.target.value));
+    if (action === "add-word") element.addEventListener("click", addCustomWord);
+    if (action === "export-custom") element.addEventListener("click", exportCustomWords);
+    if (action === "clear-custom") element.addEventListener("click", clearCustomWords);
+  });
+}
+
+function shuffle(list) {
+  const copy = [...list];
+  for (let i = copy.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy;
+}
+
+function articleFor(word) {
+  return /^[aeiou]/i.test(word) ? "an" : "a";
+}
+
 function escapeHtml(value) {
   return String(value)
     .replaceAll("&", "&amp;")
@@ -710,28 +688,13 @@ function escapeHtml(value) {
     .replaceAll("'", "&#39;");
 }
 
-function init() {
-  refreshWordBank();
-  if (wordBank.length && !state.quizTarget) {
-    buildQuizRound();
-  }
-  render(false);
+function escapeAttr(value) {
+  return escapeHtml(value).replaceAll("`", "&#96;");
 }
 
-window.addEventListener("keydown", (event) => {
-  if (event.key === "ArrowLeft") {
-    clampLearnIndex(-1);
-    render();
-  }
-  if (event.key === "ArrowRight") {
-    clampLearnIndex(1);
-    render();
-  }
-  if (event.key === " " && state.mode === "learn") {
-    event.preventDefault();
-    const current = currentLearnWord();
-    if (current) speak(current.en);
-  }
-});
+function init() {
+  refreshWordBank();
+  render();
+}
 
 init();
