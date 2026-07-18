@@ -52,12 +52,84 @@ const steps = [
 ];
 
 const praiseLines = ["Good job!", "Excellent!", "Great!", "You did it!", "Wow! High five!"];
-const stickers = ["🍎", "🌟", "🧸", "🌈", "🚗", "🐶", "🎈", "🍓", "🦕", "🦊"];
+const stickerCatalog = [
+  { id: "apple-badge", emoji: "🍎", name: "Apple Badge", zh: "苹果贴纸" },
+  { id: "star-badge", emoji: "🌟", name: "Star Badge", zh: "星星贴纸" },
+  { id: "teddy-badge", emoji: "🧸", name: "Teddy Badge", zh: "小熊贴纸" },
+  { id: "rainbow-badge", emoji: "🌈", name: "Rainbow Badge", zh: "彩虹贴纸" },
+  { id: "car-badge", emoji: "🚗", name: "Car Badge", zh: "小车贴纸" },
+  { id: "puppy-badge", emoji: "🐶", name: "Puppy Badge", zh: "小狗贴纸" },
+  { id: "balloon-badge", emoji: "🎈", name: "Balloon Badge", zh: "气球贴纸" },
+  { id: "berry-badge", emoji: "🍓", name: "Berry Badge", zh: "草莓贴纸" },
+  { id: "dino-badge", emoji: "🦕", name: "Dino Badge", zh: "恐龙贴纸" },
+  { id: "fox-badge", emoji: "🦊", name: "Fox Badge", zh: "狐狸贴纸" },
+];
+
+const friendCatalog = [
+  { id: "teddy", emoji: "🧸", name: "Teddy", zh: "小熊 Teddy", needDays: 0 },
+  { id: "puppy", emoji: "🐶", name: "Buddy", zh: "小狗 Buddy", needDays: 2 },
+  { id: "fox", emoji: "🦊", name: "Fifi", zh: "小狐狸 Fifi", needDays: 4 },
+  { id: "dino", emoji: "🦕", name: "Dino", zh: "小恐龙 Dino", needDays: 7 },
+];
+
+const storyWorlds = [
+  {
+    id: "fruit-shop",
+    emoji: "🧺",
+    title: "水果小店",
+    titleEn: "Fruit Shop",
+    taskPlace: "basket",
+    mission: "把水果放进 Teddy 的小篮子。",
+    line: "Let's go to the fruit shop!",
+    color: "#ff8a65",
+  },
+  {
+    id: "animal-park",
+    emoji: "🌳",
+    title: "动物公园",
+    titleEn: "Animal Park",
+    taskPlace: "park",
+    mission: "帮小动物回到公园里。",
+    line: "Welcome to the animal park!",
+    color: "#57bf7d",
+  },
+  {
+    id: "rainbow-room",
+    emoji: "🌈",
+    title: "彩虹颜色屋",
+    titleEn: "Rainbow Room",
+    taskPlace: "rainbow",
+    mission: "找到 Teddy 想要的颜色。",
+    line: "Let's play in the rainbow room!",
+    color: "#66a6ff",
+  },
+  {
+    id: "toy-room",
+    emoji: "🧸",
+    title: "玩具房间",
+    titleEn: "Toy Room",
+    taskPlace: "toy box",
+    mission: "把玩具放进玩具箱。",
+    line: "Time to play in the toy room!",
+    color: "#ffb84d",
+  },
+  {
+    id: "breakfast-table",
+    emoji: "🥣",
+    title: "早餐桌",
+    titleEn: "Breakfast Table",
+    taskPlace: "table",
+    mission: "帮 Teddy 找到早餐食物。",
+    line: "Let's have breakfast together!",
+    color: "#f4a261",
+  },
+];
 
 const state = {
   screen: "home",
   stepIndex: 0,
   gameTargetIndex: 0,
+  storyCollected: [],
   feedback: "",
   feedbackTone: "",
   parentOpen: false,
@@ -132,6 +204,37 @@ function getPlanWords(day = state.progress.day) {
   return [...result, ...fallback].slice(0, 3);
 }
 
+function getStoryWorld(day = state.progress.day) {
+  return storyWorlds[(day - 1) % storyWorlds.length];
+}
+
+function getStickerReward(day = state.progress.day) {
+  return stickerCatalog[(day - 1) % stickerCatalog.length];
+}
+
+function normalizeSticker(raw) {
+  if (!raw) return null;
+  if (typeof raw === "object" && raw.id) return raw;
+  return (
+    stickerCatalog.find((item) => item.id === raw || item.emoji === raw) || {
+      id: `custom-${raw}`,
+      emoji: raw,
+      name: "Sticker",
+      zh: "贴纸",
+    }
+  );
+}
+
+function unlockedFriends() {
+  const completedDays = Math.max(0, state.progress.day - 1);
+  return friendCatalog.filter((friend) => completedDays >= friend.needDays);
+}
+
+function nextFriendToUnlock() {
+  const completedDays = Math.max(0, state.progress.day - 1);
+  return friendCatalog.find((friend) => completedDays < friend.needDays) || null;
+}
+
 function getCurrentWord() {
   const words = getPlanWords();
   const step = steps[state.stepIndex]?.key || "hello";
@@ -173,7 +276,7 @@ function render() {
   app.innerHTML = `
     <div class="app-shell companion-shell">
       ${renderTopBar(words)}
-      ${state.screen === "home" ? renderHome(words) : renderLesson(step, words)}
+      ${state.screen === "garden" ? renderStickerGarden() : state.screen === "home" ? renderHome(words) : renderLesson(step, words)}
       ${state.parentOpen ? renderParentDrawer(words) : ""}
       <footer class="footer-note">亲子 AI 英语陪伴工具 · 每天 10 到 15 分钟 · 适合手机、平板和电脑</footer>
     </div>
@@ -203,23 +306,33 @@ function renderTopBar(words) {
 }
 
 function renderHome(words) {
+  const world = getStoryWorld();
+  const nextFriend = nextFriendToUnlock();
   return `
     <main class="home-stage">
-      <section class="teddy-card">
+      <section class="teddy-card story-home" style="--world-color:${world.color}">
         <div class="soft-cloud cloud-one"></div>
         <div class="soft-cloud cloud-two"></div>
         <div class="teddy-face" aria-hidden="true">🧸</div>
         <div class="speech-bubble">
           <p class="eyebrow">Hello! I'm Teddy!</p>
-          <h1>今天一起玩英语吧</h1>
-          <p>每天只学 3 个生活小词，玩一个小游戏，再跟 Teddy 说一句英语。</p>
+          <h1>今天去${escapeHtml(world.title)}闯关</h1>
+          <p>${escapeHtml(world.mission)} 完成任务后，可以解锁新的贴纸和小伙伴。</p>
+        </div>
+        <div class="story-ticket">
+          <span class="story-ticket-icon">${world.emoji}</span>
+          <div>
+            <strong>${escapeHtml(world.titleEn)}</strong>
+            <small>${escapeHtml(world.line)}</small>
+          </div>
         </div>
         <div class="today-words" aria-label="今天的三个单词">
           ${words.map((word) => renderMiniWord(word)).join("")}
         </div>
         <div class="home-actions">
-          <button class="start-btn" data-action="start-lesson">开始今天</button>
+          <button class="start-btn" data-action="start-lesson">开始闯关</button>
           <button class="soft-btn" data-action="speak-hello">听 Teddy 问好</button>
+          <button class="soft-btn" data-action="open-garden">贴纸乐园</button>
         </div>
       </section>
 
@@ -231,7 +344,74 @@ function renderHome(words) {
           <strong>What's this?</strong>
           <small>指着 ${escapeHtml(words[0]?.en || "apple")} 问孩子，答不出来就一起说。</small>
         </div>
+        <div class="unlock-preview">
+          <h3>贴纸乐园</h3>
+          <div class="tiny-sticker-row">
+            ${state.progress.stickers.slice(0, 5).map((item) => {
+              const sticker = normalizeSticker(item);
+              return sticker ? `<span title="${escapeHtml(sticker.zh)}">${sticker.emoji}</span>` : "";
+            }).join("") || "<span>🔒</span><span>🔒</span><span>🔒</span>"}
+          </div>
+          <p>${nextFriend ? `再完成 ${nextFriend.needDays - Math.max(0, state.progress.day - 1)} 天，解锁 ${nextFriend.zh}。` : "所有小动物伙伴都已经加入啦。"}</p>
+        </div>
       </aside>
+    </main>
+  `;
+}
+
+function renderStickerGarden() {
+  const collected = state.progress.stickers.map(normalizeSticker).filter(Boolean);
+  const collectedIds = new Set(collected.map((item) => item.id));
+  const friends = unlockedFriends();
+  return `
+    <main class="garden-stage">
+      <section class="garden-hero">
+        <div class="teddy-small">🧸</div>
+        <div>
+          <p class="eyebrow">Sticker Garden</p>
+          <h1>贴纸乐园</h1>
+          <p>每完成一天，Teddy 就送一个新贴纸。连续坚持，还会有小动物来做朋友。</p>
+        </div>
+        <button class="soft-btn" data-action="go-home">回到首页</button>
+      </section>
+
+      <section class="collection-grid">
+        <div class="collection-panel">
+          <h2>我的贴纸</h2>
+          <div class="sticker-grid">
+            ${stickerCatalog
+              .map(
+                (sticker) => `
+                  <div class="sticker-card ${collectedIds.has(sticker.id) ? "unlocked" : "locked"}">
+                    <span>${collectedIds.has(sticker.id) ? sticker.emoji : "🔒"}</span>
+                    <strong>${escapeHtml(sticker.zh)}</strong>
+                    <small>${collectedIds.has(sticker.id) ? sticker.name : "完成学习解锁"}</small>
+                  </div>
+                `
+              )
+              .join("")}
+          </div>
+        </div>
+        <div class="collection-panel">
+          <h2>小动物伙伴</h2>
+          <div class="friend-grid">
+            ${friendCatalog
+              .map(
+                (friend) => {
+                  const unlocked = friends.some((item) => item.id === friend.id);
+                  return `
+                    <div class="friend-card ${unlocked ? "unlocked" : "locked"}">
+                      <span>${unlocked ? friend.emoji : "🔒"}</span>
+                      <strong>${escapeHtml(friend.zh)}</strong>
+                      <small>${unlocked ? "已加入 Teddy 小队" : `${friend.needDays} 天后解锁`}</small>
+                    </div>
+                  `;
+                }
+              )
+              .join("")}
+          </div>
+        </div>
+      </section>
     </main>
   `;
 }
@@ -284,14 +464,15 @@ function renderStepContent(step, words) {
 }
 
 function renderHelloStep() {
+  const world = getStoryWorld();
   return `
     <div class="lesson-center">
       <div class="teddy-big">🧸</div>
-      <p class="eyebrow">Step 1 · Hello</p>
-      <h2>Hello! I'm Teddy!</h2>
-      <p class="large-copy">今天 Teddy 会陪你认识 3 个英语小朋友。</p>
+      <p class="eyebrow">Story Quest · ${escapeHtml(world.titleEn)}</p>
+      <h2>${escapeHtml(world.line)}</h2>
+      <p class="large-copy">今天 Teddy 会陪你认识 3 个英语小朋友，然后一起完成${escapeHtml(world.title)}任务。</p>
       <div class="choice-row two">
-        <button class="kid-choice" data-action="speak-line" data-line="Hello! I'm Teddy! Are you ready?">🔊 听 Teddy</button>
+        <button class="kid-choice" data-action="speak-line" data-line="${escapeAttr(`${world.line} Are you ready?`)}">🔊 听 Teddy</button>
         <button class="kid-choice primary" data-action="next-step">Ready!</button>
       </div>
     </div>
@@ -320,16 +501,33 @@ function renderWordStep(step, words) {
 }
 
 function renderGameStep(words) {
+  const world = getStoryWorld();
   const target = words[state.gameTargetIndex] || words[0];
   const options = buildGameOptions(target, words);
+  const collectedWords = words.filter((word) => state.storyCollected.includes(word.id));
   return `
-    <div class="game-wrap">
+    <div class="game-wrap story-wrap" style="--world-color:${world.color}">
       <div class="game-prompt">
-        <div class="teddy-small">🧸</div>
+        <div class="teddy-small">${world.emoji}</div>
         <div>
-          <p class="eyebrow">Game Time</p>
-          <h2>Can you find the ${escapeHtml(target.en)}?</h2>
-          <p>点一下正确的图片，Teddy 会给你星星。</p>
+          <p class="eyebrow">${escapeHtml(world.titleEn)} Quest</p>
+          <h2>Put the ${escapeHtml(target.en)} in the ${escapeHtml(world.taskPlace)}!</h2>
+          <p>${escapeHtml(world.mission)} 点对图片，它就会跑进场景里。</p>
+        </div>
+      </div>
+      <div class="story-scene">
+        <div class="scene-place">
+          <span class="scene-emoji">${world.emoji}</span>
+          <strong>${escapeHtml(world.title)}</strong>
+          <small>${state.storyCollected.length} / ${words.length} completed</small>
+        </div>
+        <div class="scene-collected">
+          ${words
+            .map((word) => {
+              const collected = collectedWords.some((item) => item.id === word.id);
+              return `<span class="${collected ? "filled" : ""}">${collected ? word.emoji : "?"}</span>`;
+            })
+            .join("")}
         </div>
       </div>
       <div class="game-options">
@@ -369,16 +567,19 @@ function renderSpeakStep(words) {
 }
 
 function renderRewardStep() {
+  const sticker = getStickerReward();
+  const nextFriend = nextFriendToUnlock();
   return `
     <div class="lesson-center reward-scene">
       <div class="confetti" aria-hidden="true">🎉 ⭐ 🎈</div>
       <div class="teddy-big clap">🧸</div>
       <p class="eyebrow">Star Reward</p>
       <h2>You did it!</h2>
-      <p class="large-copy">今天完成后可以获得 5 颗星和一个小贴纸。</p>
+      <p class="large-copy">今天完成后可以获得 8 颗星和一个新贴纸。</p>
       <div class="reward-box">
-        <span>⭐ +5</span>
-        <span>${stickers[(state.progress.day - 1) % stickers.length]} 今日贴纸</span>
+        <span>⭐ +8</span>
+        <span>${sticker.emoji} ${escapeHtml(sticker.zh)}</span>
+        <span>${nextFriend ? `再坚持，解锁 ${escapeHtml(nextFriend.zh)}` : "小动物小队已集齐"}</span>
       </div>
       <button class="start-btn" data-action="finish-day">领取奖励</button>
     </div>
@@ -390,15 +591,25 @@ function renderReportStep(words) {
   const reportWords = session?.words || words;
   const report = session?.report || buildReport(reportWords);
   const reportDay = session?.day || state.progress.day;
+  const world = session?.world || getStoryWorld(reportDay);
+  const sticker = session?.sticker || getStickerReward(reportDay);
   return `
     <div class="report-grid">
       <section class="report-card">
         <p class="eyebrow">Bye bye report</p>
         <h2>Day ${reportDay}</h2>
-        <p>Teddy 今天很开心，孩子完成了一次轻松英语陪伴。</p>
+        <p>Teddy 今天很开心，孩子完成了${escapeHtml(world.title)}的小闯关。</p>
+        <div class="report-list">
+          <strong>今日场景</strong>
+          <span>${world.emoji} ${escapeHtml(world.title)} · ${escapeHtml(world.titleEn)}</span>
+        </div>
         <div class="report-list">
           <strong>今天学习</strong>
           ${reportWords.map((word) => `<span>${word.emoji} ${escapeHtml(word.en)}</span>`).join("")}
+        </div>
+        <div class="report-list">
+          <strong>今日奖励</strong>
+          <span>⭐ +8 · ${sticker.emoji} ${escapeHtml(sticker.zh)}</span>
         </div>
         <div class="report-list">
           <strong>表现</strong>
@@ -473,34 +684,38 @@ function buildGameOptions(target, words) {
 function buildReport(words) {
   const hardWord = words.find((word) => word.en.length > 6) || words[2] || words[0];
   const easyWord = words[0];
+  const world = getStoryWorld();
   return {
-    performance: `${easyWord.en} 反应很好，愿意听声音和点图片就是很棒的开始。`,
-    tomorrow: `明天可以先复习 ${hardWord.en}，再新增一个生活小词。`,
-    parentTask: `今天只需要 3 到 5 分钟。指着 ${easyWord.en} 问孩子：What's this? 孩子回答 ${easyWord.en} 就完成。`,
+    performance: `${easyWord.en} 反应很好，愿意帮 Teddy 完成${world.title}任务，参与感比单纯点读更强。`,
+    tomorrow: `明天可以先复习 ${hardWord.en}，再去新的小场景继续闯关。`,
+    parentTask: `今天只需要 3 到 5 分钟。指着 ${easyWord.en} 问孩子：What's this? 孩子回答 ${easyWord.en} 后，可以说 Put it in the ${world.taskPlace}.`,
   };
 }
 
 function finishDay() {
   const completedDay = state.progress.day;
+  const world = getStoryWorld(completedDay);
   const words = getPlanWords();
-  const sticker = stickers[(completedDay - 1) % stickers.length];
+  const sticker = getStickerReward(completedDay);
   const report = buildReport(words);
 
-  state.progress.stars += 5;
+  state.progress.stars += 8;
   state.progress.streak += state.progress.lastCompleted === todayKey() ? 0 : 1;
   state.progress.lastCompleted = todayKey();
-  state.progress.stickers = [sticker, ...state.progress.stickers].slice(0, 20);
+  state.progress.stickers = [sticker.id, ...state.progress.stickers.filter((item) => normalizeSticker(item)?.id !== sticker.id)].slice(0, 20);
   state.progress.reports = [
     {
       day: completedDay,
       date: todayKey(),
+      world: world.title,
+      sticker: sticker.zh,
       words: words.map((word) => word.en),
       ...report,
     },
     ...state.progress.reports,
   ].slice(0, 7);
   state.progress.day = completedDay + 1;
-  state.sessionReport = { day: completedDay, words, report };
+  state.sessionReport = { day: completedDay, world, sticker, words, report };
   saveProgress();
   state.stepIndex = steps.findIndex((step) => step.key === "report");
   state.feedback = "";
@@ -520,10 +735,11 @@ function startLesson() {
   state.screen = "lesson";
   state.stepIndex = 0;
   state.gameTargetIndex = 0;
+  state.storyCollected = [];
   state.feedback = "";
   state.feedbackTone = "";
   state.sessionReport = null;
-  speakTeddy("Hello! I'm Teddy! Are you ready?");
+  speakTeddy(`${getStoryWorld().line} Are you ready?`);
   render();
 }
 
@@ -537,12 +753,14 @@ function goHome() {
 
 function handleGamePick(id) {
   const words = getPlanWords();
+  const world = getStoryWorld();
   const target = words[state.gameTargetIndex] || words[0];
   if (id === target.id) {
     const praise = praiseLines[Math.floor(Math.random() * praiseLines.length)];
-    state.feedback = `${praise} You found the ${target.en}!`;
+    state.storyCollected = [...new Set([...state.storyCollected, target.id])];
+    state.feedback = `${praise} The ${target.en} is in the ${world.taskPlace}!`;
     state.feedbackTone = "good";
-    speakTeddy(`${praise} You found the ${target.en}!`);
+    speakTeddy(`${praise} The ${target.en} is in the ${world.taskPlace}!`);
     if (state.gameTargetIndex < words.length - 1) {
       state.gameTargetIndex += 1;
       window.setTimeout(() => render(), 650);
@@ -625,6 +843,14 @@ function bindEvents() {
     const action = element.dataset.action;
     if (action === "start-lesson") element.addEventListener("click", startLesson);
     if (action === "go-home") element.addEventListener("click", goHome);
+    if (action === "open-garden") {
+      element.addEventListener("click", () => {
+        state.screen = "garden";
+        state.feedback = "";
+        state.feedbackTone = "";
+        render();
+      });
+    }
     if (action === "next-step") element.addEventListener("click", nextStep);
     if (action === "jump-step") {
       element.addEventListener("click", () => {
