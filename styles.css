@@ -212,7 +212,9 @@ button:disabled {
 
 .card-home,
 .cards-stage,
-.single-card-stage {
+.single-card-stage,
+.phrases-stage,
+.phrase-cards-stage {
   display: grid;
   gap: 16px;
 }
@@ -228,6 +230,218 @@ button:disabled {
   background: var(--card);
   box-shadow: var(--shadow);
   backdrop-filter: blur(16px);
+}
+
+.phrase-banner {
+  min-height: 150px;
+  padding: clamp(20px, 4vw, 34px);
+  border-radius: var(--radius-xl);
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 20px;
+  align-items: center;
+  color: var(--ink);
+  text-align: left;
+  background:
+    radial-gradient(circle at 88% 20%, rgba(255, 255, 255, 0.72), transparent 24%),
+    linear-gradient(135deg, #dff7ee, #fff1bd);
+  border: 2px solid rgba(255, 255, 255, 0.8);
+  box-shadow: var(--shadow);
+}
+
+.phrase-banner-art {
+  width: 92px;
+  height: 92px;
+  display: grid;
+  place-items: center;
+  border-radius: 30px;
+  font-size: 54px;
+  background: rgba(255, 255, 255, 0.75);
+}
+
+.phrase-banner-copy,
+.phrase-banner-copy > * {
+  display: block;
+}
+
+.phrase-banner-copy small {
+  margin-bottom: 4px;
+  color: #267b66;
+  font-size: 14px;
+  font-weight: 950;
+  letter-spacing: 0.08em;
+}
+
+.phrase-banner-copy strong {
+  margin-bottom: 4px;
+  font-size: clamp(27px, 4vw, 42px);
+  font-weight: 950;
+}
+
+.phrase-banner-copy span {
+  color: var(--muted);
+  font-size: clamp(15px, 2.2vw, 19px);
+  font-weight: 750;
+}
+
+.phrase-banner-arrow {
+  font-size: 52px;
+  font-weight: 900;
+}
+
+.phrase-hero,
+.phrase-cards-head,
+.phrase-group-grid,
+.phrase-card-grid {
+  border-radius: var(--radius-xl);
+  border: 1px solid rgba(255, 255, 255, 0.78);
+  background: var(--card);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(16px);
+}
+
+.phrase-hero,
+.phrase-cards-head {
+  padding: clamp(20px, 4vw, 34px);
+  background:
+    radial-gradient(circle at 90% 20%, color-mix(in srgb, var(--phrase-color, var(--mint)) 24%, transparent), transparent 30%),
+    var(--card);
+}
+
+.phrase-hero-copy,
+.phrase-group-title {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  margin-top: 20px;
+}
+
+.phrase-hero-copy > span,
+.phrase-group-title > span {
+  width: 88px;
+  height: 88px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  border-radius: 28px;
+  font-size: 52px;
+  background: color-mix(in srgb, var(--phrase-color, var(--mint)) 18%, #ffffff);
+}
+
+.phrase-hero h1,
+.phrase-cards-head h1 {
+  margin-bottom: 8px;
+}
+
+.phrase-hero-copy p:last-child,
+.phrase-cards-head > p {
+  margin-bottom: 0;
+  color: var(--muted);
+  font-size: clamp(16px, 2.4vw, 20px);
+  font-weight: 750;
+}
+
+.phrase-group-grid {
+  padding: clamp(16px, 3vw, 28px);
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.phrase-group-card {
+  min-height: 132px;
+  padding: 18px;
+  border-radius: 30px;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 14px;
+  align-items: center;
+  color: var(--ink);
+  text-align: left;
+  background: color-mix(in srgb, var(--phrase-color) 13%, #ffffff);
+  border: 2px solid color-mix(in srgb, var(--phrase-color) 18%, #ffffff);
+  box-shadow: var(--soft-shadow);
+}
+
+.phrase-group-art {
+  width: 72px;
+  height: 72px;
+  display: grid;
+  place-items: center;
+  border-radius: 24px;
+  font-size: 42px;
+  background: rgba(255, 255, 255, 0.8);
+}
+
+.phrase-group-card strong,
+.phrase-group-card small {
+  display: block;
+}
+
+.phrase-group-card strong {
+  font-size: clamp(21px, 3vw, 28px);
+  font-weight: 950;
+}
+
+.phrase-group-card small {
+  margin-top: 5px;
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.phrase-card-grid {
+  padding: clamp(14px, 3vw, 28px);
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.phrase-card {
+  min-height: 245px;
+  padding: 22px;
+  border-radius: 34px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 10px;
+  color: var(--ink);
+  text-align: center;
+  background: color-mix(in srgb, var(--phrase-color) 11%, #ffffff);
+  border: 3px solid rgba(255, 255, 255, 0.9);
+  box-shadow: var(--soft-shadow);
+  transition: transform 0.2s ease;
+}
+
+.phrase-card:hover { transform: translateY(-3px); }
+
+.phrase-emoji {
+  width: 78px;
+  height: 78px;
+  display: grid;
+  place-items: center;
+  border-radius: 26px;
+  font-size: 46px;
+  background: rgba(255, 255, 255, 0.82);
+}
+
+.phrase-card strong {
+  font-size: clamp(26px, 4vw, 38px);
+  line-height: 1.18;
+}
+
+.phrase-card small {
+  color: var(--muted);
+  font-size: clamp(16px, 2.5vw, 20px);
+  font-weight: 800;
+}
+
+.phrase-listen {
+  margin-top: 4px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  color: #286b5c;
+  background: rgba(121, 216, 201, 0.18);
+  font-weight: 900;
 }
 
 .card-home-hero {
@@ -1577,6 +1791,83 @@ h3 {
   .mode-card {
     min-height: 92px;
   }
+
+  .phrase-banner {
+    min-height: 128px;
+    padding: 16px;
+    gap: 12px;
+    border-radius: 28px;
+  }
+
+  .phrase-banner-art {
+    width: 66px;
+    height: 66px;
+    border-radius: 22px;
+    font-size: 40px;
+  }
+
+  .phrase-banner-copy strong { font-size: 25px; }
+  .phrase-banner-copy span { font-size: 13px; }
+  .phrase-banner-arrow { font-size: 38px; }
+
+  .phrase-hero,
+  .phrase-cards-head,
+  .phrase-group-grid,
+  .phrase-card-grid {
+    border-radius: 28px;
+  }
+
+  .phrase-hero-copy > span,
+  .phrase-group-title > span {
+    width: 70px;
+    height: 70px;
+    font-size: 42px;
+  }
+
+  .phrase-hero h1,
+  .phrase-cards-head h1 {
+    font-size: 38px;
+  }
+
+  .phrase-group-grid,
+  .phrase-card-grid {
+    padding: 10px;
+    gap: 10px;
+  }
+
+  .phrase-group-card {
+    min-height: 165px;
+    padding: 12px 8px;
+    grid-template-columns: 1fr;
+    justify-items: center;
+    gap: 7px;
+    text-align: center;
+    border-radius: 24px;
+  }
+
+  .phrase-group-card .category-arrow { display: none; }
+
+  .phrase-group-art {
+    width: 62px;
+    height: 62px;
+    font-size: 38px;
+  }
+
+  .phrase-group-card strong { font-size: 20px; }
+  .phrase-group-card small { font-size: 12px; }
+
+  .phrase-card {
+    min-height: 225px;
+    padding: 14px 8px;
+    border-radius: 25px;
+  }
+
+  .phrase-card strong {
+    font-size: clamp(22px, 7vw, 29px);
+  }
+
+  .phrase-card small { font-size: 15px; }
+  .phrase-listen { font-size: 12px; }
 
   .cards-stage-head {
     border-radius: 28px;

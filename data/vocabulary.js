@@ -879,6 +879,50 @@ const rawCategories = [
       "runner",
     ],
   },
+  {
+    key: "meals",
+    labelZh: "正餐",
+    labelEn: "Meals",
+    emoji: "🍽️",
+    color: "#f4a261",
+    words: [
+      "breakfast", "lunch", "dinner", "rice", "noodles", "bread", "egg", "soup", "salad",
+      "sandwich", "dumpling", "pancake", "pizza", "chicken", "beef", "tofu", "corn", "porridge",
+    ],
+  },
+  {
+    key: "daily-items",
+    labelZh: "日常用品",
+    labelEn: "Daily Things",
+    emoji: "🎒",
+    color: "#5c7cfa",
+    words: [
+      "backpack", "umbrella", "tissue", "towel", "bottle", "lunchbox", "toothbrush", "toothpaste",
+      "comb", "mirror", "key", "phone", "clock", "lamp", "basket", "box", "bag", "wallet",
+    ],
+  },
+  {
+    key: "people",
+    labelZh: "身边的人",
+    labelEn: "People",
+    emoji: "🧑‍🤝‍🧑",
+    color: "#e76f51",
+    words: [
+      "teacher", "doctor", "nurse", "dentist", "cook", "driver", "farmer", "police officer",
+      "firefighter", "mail carrier", "builder", "singer", "dancer", "artist", "neighbor", "classmate",
+    ],
+  },
+  {
+    key: "music",
+    labelZh: "音乐",
+    labelEn: "Music",
+    emoji: "🎵",
+    color: "#9b5de5",
+    words: [
+      "music", "song", "dance", "piano", "guitar", "drum", "violin", "trumpet", "flute", "bell",
+      "microphone", "note", "rhythm", "loud", "quiet", "band",
+    ],
+  },
 ];
 
 export const baseCategories = rawCategories.map((category) => ({

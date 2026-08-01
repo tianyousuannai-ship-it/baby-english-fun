@@ -1,4 +1,5 @@
-import { buildWordBank, baseCategories } from "./data/vocabulary.js";
+import { buildWordBank, baseCategories } from "./data/vocabulary.js?v=20260801-2";
+import { phraseGroups, phraseCount } from "./data/phrases.js?v=20260801-2";
 
 const CUSTOM_WORDS_KEY = "baby-english-custom-words-v1";
 const PROGRESS_KEY = "baby-english-companion-progress-v1";
@@ -129,6 +130,7 @@ const state = {
   screen: "home",
   selectedCategoryKey: "fruits",
   selectedWordId: "",
+  selectedPhraseGroupKey: "greetings",
   stepIndex: 0,
   gameTargetIndex: 0,
   storyCollected: [],
@@ -291,6 +293,8 @@ function renderScreen(step, words) {
   if (state.screen === "garden") return renderStickerGarden();
   if (state.screen === "category") return renderCategoryCards();
   if (state.screen === "word-card") return renderWordCard();
+  if (state.screen === "phrases") return renderPhraseGroups();
+  if (state.screen === "phrase-group") return renderPhraseCards();
   if (state.screen === "lesson") return renderLesson(step, words);
   return renderHome(words);
 }
@@ -353,6 +357,16 @@ function renderHome(words) {
         ` : ""}
       </section>
 
+      <button class="phrase-banner" data-action="open-phrases">
+        <span class="phrase-banner-art" aria-hidden="true">💬</span>
+        <span class="phrase-banner-copy">
+          <small>NEW · Short Sentences</small>
+          <strong>日常短句卡</strong>
+          <span>${phraseCount} 句亲子英语，点一下就能跟读</span>
+        </span>
+        <span class="phrase-banner-arrow" aria-hidden="true">›</span>
+      </button>
+
       <section class="play-mode-section">
         <div>
           <p class="eyebrow">More ways to play</p>
@@ -366,6 +380,63 @@ function renderHome(words) {
             <span>🌟</span><strong>贴纸乐园</strong><small>看看收集的小伙伴</small>
           </button>
         </div>
+      </section>
+    </main>
+  `;
+}
+
+function phraseGroupByKey(key) {
+  return phraseGroups.find((group) => group.key === key) || phraseGroups[0];
+}
+
+function renderPhraseGroups() {
+  return `
+    <main class="phrases-stage">
+      <header class="phrase-hero">
+        <button class="back-button" data-action="go-home" aria-label="返回卡片首页">‹ 返回</button>
+        <div class="phrase-hero-copy">
+          <span aria-hidden="true">💬</span>
+          <div>
+            <p class="eyebrow">Short Sentences</p>
+            <h1>日常短句卡</h1>
+            <p>先选一个生活场景，再点短句听 Teddy 说。</p>
+          </div>
+        </div>
+      </header>
+      <section class="phrase-group-grid" aria-label="短句场景">
+        ${phraseGroups.map((group) => `
+          <button class="phrase-group-card" data-action="open-phrase-group" data-phrase-group-key="${group.key}" style="--phrase-color:${group.color}">
+            <span class="phrase-group-art" aria-hidden="true">${group.emoji}</span>
+            <span><strong>${escapeHtml(group.labelZh)}</strong><small>${escapeHtml(group.labelEn)} · ${group.phrases.length} 句</small></span>
+            <span class="category-arrow" aria-hidden="true">›</span>
+          </button>
+        `).join("")}
+      </section>
+    </main>
+  `;
+}
+
+function renderPhraseCards() {
+  const group = phraseGroupByKey(state.selectedPhraseGroupKey);
+  return `
+    <main class="phrase-cards-stage" style="--phrase-color:${group.color}">
+      <header class="phrase-cards-head">
+        <button class="back-button" data-action="back-to-phrases">‹ 短句分类</button>
+        <div class="phrase-group-title">
+          <span aria-hidden="true">${group.emoji}</span>
+          <div><p class="eyebrow">${escapeHtml(group.labelEn)}</p><h1>${escapeHtml(group.labelZh)}</h1></div>
+        </div>
+        <p>点任意一张卡片听发音，愿意跟着说一次就很棒。</p>
+      </header>
+      <section class="phrase-card-grid" aria-label="${escapeHtml(group.labelZh)}短句">
+        ${group.phrases.map((phrase) => `
+          <button class="phrase-card" data-action="speak-phrase" data-phrase="${escapeAttr(phrase.en)}">
+            <span class="phrase-emoji" aria-hidden="true">${phrase.emoji}</span>
+            <strong>${escapeHtml(phrase.en)}</strong>
+            <small>${escapeHtml(phrase.zh)}</small>
+            <span class="phrase-listen">🔊 点我听一听</span>
+          </button>
+        `).join("")}
       </section>
     </main>
   `;
@@ -970,6 +1041,26 @@ function bindEvents() {
     if (action === "previous-card") element.addEventListener("click", () => moveWordCard(-1));
     if (action === "next-card") element.addEventListener("click", () => moveWordCard(1));
     if (action === "random-card") element.addEventListener("click", () => moveWordCard(0));
+    if (action === "open-phrases") {
+      element.addEventListener("click", () => {
+        state.screen = "phrases";
+        render();
+      });
+    }
+    if (action === "open-phrase-group") {
+      element.addEventListener("click", () => {
+        state.selectedPhraseGroupKey = element.dataset.phraseGroupKey;
+        state.screen = "phrase-group";
+        render();
+      });
+    }
+    if (action === "back-to-phrases") {
+      element.addEventListener("click", () => {
+        state.screen = "phrases";
+        render();
+      });
+    }
+    if (action === "speak-phrase") element.addEventListener("click", () => speakTeddy(element.dataset.phrase));
     if (action === "open-garden") {
       element.addEventListener("click", () => {
         state.screen = "garden";
