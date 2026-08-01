@@ -127,6 +127,8 @@ const storyWorlds = [
 
 const state = {
   screen: "home",
+  selectedCategoryKey: "fruits",
+  selectedWordId: "",
   stepIndex: 0,
   gameTargetIndex: 0,
   storyCollected: [],
@@ -276,13 +278,21 @@ function render() {
   app.innerHTML = `
     <div class="app-shell companion-shell">
       ${renderTopBar(words)}
-      ${state.screen === "garden" ? renderStickerGarden() : state.screen === "home" ? renderHome(words) : renderLesson(step, words)}
+      ${renderScreen(step, words)}
       ${state.parentOpen ? renderParentDrawer(words) : ""}
       <footer class="footer-note">亲子 AI 英语陪伴工具 · 每天 10 到 15 分钟 · 适合手机、平板和电脑</footer>
     </div>
   `;
 
   bindEvents();
+}
+
+function renderScreen(step, words) {
+  if (state.screen === "garden") return renderStickerGarden();
+  if (state.screen === "category") return renderCategoryCards();
+  if (state.screen === "word-card") return renderWordCard();
+  if (state.screen === "lesson") return renderLesson(step, words);
+  return renderHome(words);
 }
 
 function renderTopBar(words) {
@@ -306,55 +316,133 @@ function renderTopBar(words) {
 }
 
 function renderHome(words) {
-  const world = getStoryWorld();
-  const nextFriend = nextFriendToUnlock();
+  const featuredCategories = baseCategories.slice(0, 8);
   return `
-    <main class="home-stage">
-      <section class="teddy-card story-home" style="--world-color:${world.color}">
-        <div class="soft-cloud cloud-one"></div>
-        <div class="soft-cloud cloud-two"></div>
-        <div class="teddy-face" aria-hidden="true">🧸</div>
-        <div class="speech-bubble">
-          <p class="eyebrow">Hello! I'm Teddy!</p>
-          <h1>今天去${escapeHtml(world.title)}闯关</h1>
-          <p>${escapeHtml(world.mission)} 完成任务后，可以解锁新的贴纸和小伙伴。</p>
+    <main class="card-home">
+      <section class="card-home-hero">
+        <div class="hero-copy">
+          <p class="eyebrow">Pick a card · 自由点读</p>
+          <h1>今天想学什么？</h1>
+          <p>自己选喜欢的卡片。点一下图片，Teddy 就读给你听。</p>
         </div>
-        <div class="story-ticket">
-          <span class="story-ticket-icon">${world.emoji}</span>
-          <div>
-            <strong>${escapeHtml(world.titleEn)}</strong>
-            <small>${escapeHtml(world.line)}</small>
-          </div>
-        </div>
-        <div class="today-words" aria-label="今天的三个单词">
-          ${words.map((word) => renderMiniWord(word)).join("")}
-        </div>
-        <div class="home-actions">
-          <button class="start-btn" data-action="start-lesson">开始闯关</button>
-          <button class="soft-btn" data-action="speak-hello">听 Teddy 问好</button>
-          <button class="soft-btn" data-action="open-garden">贴纸乐园</button>
-        </div>
+        <button class="teddy-listen" data-action="speak-hello" aria-label="听 Teddy 问好">
+          <span aria-hidden="true">🧸</span>
+          <strong>Hello!</strong>
+          <small>点我听一听</small>
+        </button>
       </section>
 
-      <aside class="parent-tip-card">
-        <h2>爸爸/妈妈今天怎么陪？</h2>
-        <p>不用讲语法，也不用考试。陪孩子点图片、跟读一次、夸一句就很好。</p>
-        <div class="parent-script">
-          <span>今日亲子句子</span>
-          <strong>What's this?</strong>
-          <small>指着 ${escapeHtml(words[0]?.en || "apple")} 问孩子，答不出来就一起说。</small>
-        </div>
-        <div class="unlock-preview">
-          <h3>贴纸乐园</h3>
-          <div class="tiny-sticker-row">
-            ${state.progress.stickers.slice(0, 5).map((item) => {
-              const sticker = normalizeSticker(item);
-              return sticker ? `<span title="${escapeHtml(sticker.zh)}">${sticker.emoji}</span>` : "";
-            }).join("") || "<span>🔒</span><span>🔒</span><span>🔒</span>"}
+      <section class="category-section" aria-labelledby="category-title">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Choose a topic</p>
+            <h2 id="category-title">选择卡片分类</h2>
           </div>
-          <p>${nextFriend ? `再完成 ${nextFriend.needDays - Math.max(0, state.progress.day - 1)} 天，解锁 ${nextFriend.zh}。` : "所有小动物伙伴都已经加入啦。"}</p>
+          <span class="word-count">${wordBank.length} 张卡片</span>
         </div>
-      </aside>
+        <div class="category-grid">
+          ${featuredCategories.map((category) => renderCategoryButton(category)).join("")}
+        </div>
+        ${baseCategories.length > featuredCategories.length ? `
+          <details class="more-categories">
+            <summary>更多分类</summary>
+            <div class="category-grid more-grid">
+              ${baseCategories.slice(featuredCategories.length).map((category) => renderCategoryButton(category)).join("")}
+            </div>
+          </details>
+        ` : ""}
+      </section>
+
+      <section class="play-mode-section">
+        <div>
+          <p class="eyebrow">More ways to play</p>
+          <h2>还想玩一会儿？</h2>
+        </div>
+        <div class="mode-buttons">
+          <button class="mode-card quest" data-action="start-lesson">
+            <span>🧺</span><strong>故事闯关</strong><small>跟 Teddy 完成今天的任务</small>
+          </button>
+          <button class="mode-card garden" data-action="open-garden">
+            <span>🌟</span><strong>贴纸乐园</strong><small>看看收集的小伙伴</small>
+          </button>
+        </div>
+      </section>
+    </main>
+  `;
+}
+
+function renderCategoryButton(category) {
+  const count = wordBank.filter((word) => word.categoryKey === category.key).length;
+  return `
+    <button class="category-card" data-action="open-category" data-category-key="${escapeAttr(category.key)}" style="--category-color:${category.color}">
+      <span class="category-art" aria-hidden="true">${category.emoji}</span>
+      <span class="category-copy">
+        <strong>${escapeHtml(category.labelZh)}</strong>
+        <small>${escapeHtml(category.labelEn)} · ${count} 张</small>
+      </span>
+      <span class="category-arrow" aria-hidden="true">›</span>
+    </button>
+  `;
+}
+
+function selectedCategory() {
+  return categoryByKey(state.selectedCategoryKey) || baseCategories[0];
+}
+
+function selectedCategoryWords() {
+  return wordBank.filter((word) => word.categoryKey === selectedCategory().key);
+}
+
+function renderCategoryCards() {
+  const category = selectedCategory();
+  const words = selectedCategoryWords();
+  return `
+    <main class="cards-stage" style="--category-color:${category.color}">
+      <header class="cards-stage-head">
+        <button class="back-button" data-action="go-home" aria-label="返回分类首页">‹ 返回</button>
+        <div class="category-title">
+          <span>${category.emoji}</span>
+          <div><p class="eyebrow">${escapeHtml(category.labelEn)}</p><h1>${escapeHtml(category.labelZh)}卡片</h1></div>
+        </div>
+        <p>想学哪一个，就点哪一张。每张卡片都可以反复听。</p>
+      </header>
+      <section class="word-card-grid" aria-label="${escapeHtml(category.labelZh)}单词卡">
+        ${words.map((word) => `
+          <button class="browse-word-card" data-action="open-word-card" data-word-id="${word.id}" style="--word-color:${word.color}" aria-label="打开 ${escapeHtml(word.en)} 卡片">
+            <span class="browse-word-art" role="img" aria-label="${escapeHtml(word.en)}">${word.emoji}</span>
+            <strong>${escapeHtml(word.en)}</strong>
+            <small>点我听发音</small>
+          </button>
+        `).join("")}
+      </section>
+    </main>
+  `;
+}
+
+function renderWordCard() {
+  const words = selectedCategoryWords();
+  let index = words.findIndex((word) => word.id === state.selectedWordId);
+  if (index < 0) index = 0;
+  const word = words[index];
+  if (!word) return renderCategoryCards();
+  return `
+    <main class="single-card-stage" style="--word-color:${word.color}">
+      <header class="single-card-nav">
+        <button class="back-button" data-action="back-to-category">‹ ${escapeHtml(word.categoryLabelZh)}</button>
+        <span>${index + 1} / ${words.length}</span>
+      </header>
+      <button class="learning-flashcard" data-action="speak-word" data-word-id="${word.id}" aria-label="播放 ${escapeHtml(word.en)} 的发音">
+        <p class="eyebrow">Tap to listen · 点卡片听发音</p>
+        <div class="flashcard-art" role="img" aria-label="${escapeHtml(word.en)}">${word.emoji}</div>
+        <h1>${escapeHtml(word.en)}</h1>
+        <p class="word-sentence">This is ${articleFor(word.en)} ${escapeHtml(word.en)}.</p>
+        <span class="listen-button">🔊 点卡片再听一次</span>
+      </button>
+      <nav class="card-switcher" aria-label="切换单词卡">
+        <button data-action="previous-card" ${index === 0 ? "disabled" : ""}>‹ 上一张</button>
+        <button class="random-card" data-action="random-card">换一张</button>
+        <button data-action="next-card" ${index === words.length - 1 ? "disabled" : ""}>下一张 ›</button>
+      </nav>
     </main>
   `;
 }
@@ -751,6 +839,34 @@ function goHome() {
   render();
 }
 
+function openCategory(key) {
+  state.selectedCategoryKey = key;
+  state.selectedWordId = "";
+  state.screen = "category";
+  render();
+}
+
+function openWordCard(id) {
+  state.selectedWordId = id;
+  state.screen = "word-card";
+  const word = wordBank.find((item) => item.id === id);
+  render();
+  if (word) speakTeddy(word.en);
+}
+
+function moveWordCard(direction) {
+  const words = selectedCategoryWords();
+  const currentIndex = Math.max(0, words.findIndex((word) => word.id === state.selectedWordId));
+  let nextIndex = currentIndex + direction;
+  if (direction === 0) nextIndex = Math.floor(Math.random() * words.length);
+  nextIndex = Math.max(0, Math.min(words.length - 1, nextIndex));
+  const word = words[nextIndex];
+  if (!word) return;
+  state.selectedWordId = word.id;
+  render();
+  speakTeddy(word.en);
+}
+
 function handleGamePick(id) {
   const words = getPlanWords();
   const world = getStoryWorld();
@@ -843,6 +959,17 @@ function bindEvents() {
     const action = element.dataset.action;
     if (action === "start-lesson") element.addEventListener("click", startLesson);
     if (action === "go-home") element.addEventListener("click", goHome);
+    if (action === "open-category") element.addEventListener("click", () => openCategory(element.dataset.categoryKey));
+    if (action === "open-word-card") element.addEventListener("click", () => openWordCard(element.dataset.wordId));
+    if (action === "back-to-category") {
+      element.addEventListener("click", () => {
+        state.screen = "category";
+        render();
+      });
+    }
+    if (action === "previous-card") element.addEventListener("click", () => moveWordCard(-1));
+    if (action === "next-card") element.addEventListener("click", () => moveWordCard(1));
+    if (action === "random-card") element.addEventListener("click", () => moveWordCard(0));
     if (action === "open-garden") {
       element.addEventListener("click", () => {
         state.screen = "garden";
